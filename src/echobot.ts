@@ -195,6 +195,7 @@ discordClient.once(Discord.Events.ClientReady, () => {
 
         // Login.
         if (config && config.token) {
+            logger.debug("Attempting to login with token: " + config.token); // Add this line to log the token
             discordClient
                 .login(config.token)
                 .catch(err => {

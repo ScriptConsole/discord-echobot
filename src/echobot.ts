@@ -160,20 +160,20 @@ class EchoBot {
     private loginToDiscord(): void {
         // Create client, but don't login yet.
         discordClient = new Discord.Client({
-    intents: [
-        Discord.GatewayIntentBits.Guilds, 
-        Discord.GatewayIntentBits.GuildMessages, 
-        Discord.GatewayIntentBits.MessageContent
-    ]
-});
+            intents: [
+                Discord.GatewayIntentBits.Guilds, 
+                Discord.GatewayIntentBits.GuildMessages, 
+                Discord.GatewayIntentBits.MessageContent
+            ]
+        });
 
         // Register event for when client is ready.
-discordClient.once(Discord.Events.ClientReady, () => {
-    logger.info("Signed into Discord.");
-});
+        discordClient.once(Discord.Events.ClientReady, () => {
+            logger.info("Signed into Discord.");
+        });
 
         // Register event for when client receives a message.
-        discordClient.on('message', (message) => {
+        discordClient.on('messageCreate', (message) => {
             this.onDiscordClientMessageReceived(message)
                 .then(() => logger['debug']("Message handled gracefully."))
                 .catch(err => {
@@ -202,7 +202,7 @@ discordClient.once(Discord.Events.ClientReady, () => {
      * Fired when a message is received on Discord in any channel.
      * @param message The message that was received.
      */
-    private async onDiscordClientMessageReceived(message: Discord.Message): Promise<void> {
+    private async onDiscordClientMessageReceived(message: Message): Promise<void> {
         // Find redirects that have this message's channel id as a source.
         let matchingRedirects = config.redirects.filter(redirect =>
             redirect.sources.some(source => source == message.channel.id)
@@ -215,7 +215,7 @@ discordClient.once(Discord.Events.ClientReady, () => {
             if (redirect.options && redirect.options.allowList) {
                 if (redirect.options.allowList.length > 0) {
                     if (!redirect.options.allowList.includes(message.author.id)) {
-                        logger.info("Dropping message from " + message.author.username + " in " + message.guild.name + "/" + (message.channel as TextChannel).name + " as their ID (" + message.author.id + ") is not in the allowList.")
+                        logger.info("Dropping message from " + message.author.username + " in " + message.guild.name + "/" + (message.channel as TextChannel).name + " as their ID (" + message.author.id + ") is not in the allowList.");
                         continue;
                     }
                 }
@@ -251,42 +251,45 @@ discordClient.once(Discord.Events.ClientReady, () => {
 
                 // Send the header
                 if (header) {
-    logger.debug("Sending header:");
-    logger.debug(JSON.stringify(header));
+                    logger.debug("Sending header:");
+                    logger.debug(JSON.stringify(header));
 
-    let options: MessageCreateOptions = {
-        nonce: this.generateNonce()
-    };
+                    let options: MessageCreateOptions = {
+                        nonce: this.generateNonce()
+                    };
 
-    if (header instanceof Discord.EmbedBuilder) {
-        options.embeds = [header]; // ✅ Gebruik 'embeds'[] array
-        await (destChannel as TextChannel).send(options);
-        logger.debug("Sent header as embed.");
-    } else {
-        await (destChannel as TextChannel).send({ content: String(header), ...options }); // ✅ Zorg dat header een string is
-        logger.debug("Sent header as text.");
-    }
-}
+                    if (header instanceof EmbedBuilder) {
+                        options.embeds = [header]; // ✅ Gebruik 'embeds'[] array
+                        await (destChannel as TextChannel).send(options);
+                        logger.debug("Sent header as embed.");
+                    } else {
+                        await (destChannel as TextChannel).send({ content: String(header), ...options }); // ✅ Zorg dat header een string is
+                        logger.debug("Sent header as text.");
+                    }
+                }
 
                 // Send the body
-               logger.debug("Sending body:");
-logger.debug(JSON.stringify(body));
+                logger.debug("Sending body:");
+                logger.debug(JSON.stringify(body));
 
-let options: Discord.MessageCreateOptions = {
-    files: redirect.options?.copyAttachments ? message.attachments.map(attachment => ({
-        attachment: attachment.url, 
-        name: attachment.name 
-    })) : [],
-    embeds: body.embed ? [body.embed] : []
-};
+                let options: MessageCreateOptions = {
+                    files: redirect.options?.copyAttachments ? message.attachments.map(attachment => ({
+                        attachment: attachment.url, 
+                        name: attachment.name 
+                    })) : [],
+                    embeds: body.embed ? [body.embed] : []
+                };
 
-// Zorg altijd dat een lege string wordt verstuurd als content
-await (destChannel as Discord.TextChannel).send({ 
-    content: String(body.contents ?? ''), 
-    ...options 
-});
+                // Zorg altijd dat een lege string wordt verstuurd als content
+                await (destChannel as TextChannel).send({ 
+                    content: String(body.contents ?? ''), 
+                    ...options 
+                });
 
-logger.debug("Sent body.");
+                logger.debug("Sent body.");
+            }
+        }
+    }
 
     private explainPath(channel: Discord.Channel): string {
         let parts = []
@@ -304,107 +307,112 @@ logger.debug("Sent body.");
         return parts.join("/")
     }
 
-private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder | string | null {
-    if (redirect.options && redirect.options.richEmbed) {
-        // Sending a rich embed.
-        let richEmbed = new EmbedBuilder()
-            .setColor(redirect.options.richEmbedColor ? redirect.options.richEmbedColor : 30975);
+    private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder | string | null {
+        if (redirect.options && redirect.options.richEmbed) {
+            // Sending a rich embed.
+            let richEmbed = new EmbedBuilder()
+                .setColor(redirect.options.richEmbedColor ? redirect.options.richEmbedColor : 30975);
 
-        if (!redirect.options.title && !redirect.options.includeSource) {
-            return null;
-        }
-
-        // Add title if requested.
-        if (redirect.options.title) {
-            richEmbed.setTitle(redirect.options.title);
-        }
-
-        // Add source if requested.
-        if (redirect.options.includeSource) {
-            richEmbed.addFields({ name: "Author", value: `**${message.member.displayName}** in **${this.explainPath(message.channel)}**` });
-        }
-        return richEmbed;
-    } else {
-        // Sending a standard message.
-        let destinationMessage = "";
-
-        // Add title if requested.
-        if (redirect.options && redirect.options.title) {
-            destinationMessage += "**" + redirect.options.title + "**\n";
-        }
-
-        // Add source if requested.
-        if (redirect.options && redirect.options.includeSource) {
-            destinationMessage += `*Author: **${message.member.displayName}** in **${this.explainPath(message.channel)}***\n`;
-        }
-
-        if (destinationMessage == "") {
-            return null;
-        }
-        return destinationMessage;
-    }
-}
-
-    private createBody(message: Discord.Message, redirect: EchobotRedirect): { contents?: string, embed?: EmbedBuilder } {
-    let contents = message.content;
-    let embed: EmbedBuilder | null = null;
-
-    // Copy rich embed if requested.
-    if (redirect.options && redirect.options.copyRichEmbed) {
-        let receivedEmbed = message.embeds.find(e => e.type === 'rich'); // Controleer of het een rich embed is
-        if (receivedEmbed) {
-            embed = new EmbedBuilder()
-                .setTitle(receivedEmbed.title || "")
-                .setDescription(receivedEmbed.description || "")
-                .setURL(receivedEmbed.url || "");
-
-            // Voeg kleur toe als deze bestaat
-            if (receivedEmbed.color) {
-                embed.setColor(receivedEmbed.color);
+            if (!redirect.options.title && !redirect.options.includeSource) {
+                return null;
             }
 
-            // Voeg een afbeelding toe als deze bestaat
-            if (receivedEmbed.image) {
-                embed.setImage(receivedEmbed.image.url);
+            // Add title if requested.
+            if (redirect.options.title) {
+                richEmbed.setTitle(redirect.options.title);
             }
 
-            // Voeg een thumbnail toe als deze bestaat
-            if (receivedEmbed.thumbnail) {
-                embed.setThumbnail(receivedEmbed.thumbnail.url);
+            // Add source if requested.
+            if (redirect.options.includeSource) {
+                richEmbed.addFields({ name: "Author", value: `**${message.member.displayName}** in **${this.explainPath(message.channel)}**` });
+            }
+            return richEmbed;
+        } else {
+            // Sending a standard message.
+            let destinationMessage = "";
+
+            // Add title if requested.
+            if (redirect.options && redirect.options.title) {
+                destinationMessage += "**" + redirect.options.title + "**\n";
             }
 
-            // Voeg een footer toe indien beschikbaar
-            if (receivedEmbed.footer) {
-                embed.setFooter({ text: receivedEmbed.footer.text, iconURL: receivedEmbed.footer.iconURL });
+            // Add source if requested.
+            if (redirect.options && redirect.options.includeSource) {
+                destinationMessage += `*Author: **${message.member.displayName}** in **${this.explainPath(message.channel)}***\n`;
             }
 
-            // Voeg tijdstempel toe als dat aanwezig is
-            if (receivedEmbed.timestamp) {
-                embed.setTimestamp(new Date(receivedEmbed.timestamp));
+            if (destinationMessage == "") {
+                return null;
             }
-
-            // Voeg velden toe als ze er zijn
-            if (receivedEmbed.fields) {
-                embed.addFields(receivedEmbed.fields.map(field => ({
-                    name: field.name,
-                    value: field.value,
-                    inline: field.inline || false
-                })));
-            }
+            return destinationMessage;
         }
     }
 
-    // Remove @everyone if requested.
-    if (redirect.options && redirect.options.removeEveryone) {
-        contents = contents.replace("@everyone", "");
+    private createBody(message: Message, redirect: EchobotRedirect): { contents?: string, embed?: EmbedBuilder } {
+        let contents = message.content;
+        let embed: EmbedBuilder | null = null;
+
+        // Copy rich embed if requested.
+        if (redirect.options && redirect.options.copyRichEmbed) {
+            let receivedEmbed = message.embeds.find(e => e.type === 'rich'); // Controleer of het een rich embed is
+            if (receivedEmbed) {
+                embed = new EmbedBuilder()
+                    .setTitle(receivedEmbed.title || "")
+                    .setDescription(receivedEmbed.description || "")
+                    .setURL(receivedEmbed.url || "");
+
+                // Voeg kleur toe als deze bestaat
+                if (receivedEmbed.color) {
+                    embed.setColor(receivedEmbed.color);
+                }
+
+                // Voeg een afbeelding toe als deze bestaat
+                if (receivedEmbed.image) {
+                    embed.setImage(receivedEmbed.image.url);
+                }
+
+                // Voeg een thumbnail toe als deze bestaat
+                if (receivedEmbed.thumbnail) {
+                    embed.setThumbnail(receivedEmbed.thumbnail.url);
+                }
+
+                // Voeg een footer toe indien beschikbaar
+                if (receivedEmbed.footer) {
+                    embed.setFooter({ text: receivedEmbed.footer.text, iconURL: receivedEmbed.footer.iconURL });
+                }
+
+                // Voeg tijdstempel toe als dat aanwezig is
+                if (receivedEmbed.timestamp) {
+                    embed.setTimestamp(new Date(receivedEmbed.timestamp));
+                }
+
+                // Voeg velden toe als ze er zijn
+                if (receivedEmbed.fields) {
+                    embed.addFields(receivedEmbed.fields.map(field => ({
+                        name: field.name,
+                        value: field.value,
+                        inline: field.inline || false
+                    })));
+                }
+            }
+        }
+
+        // Remove @everyone if requested.
+        if (redirect.options && redirect.options.removeEveryone) {
+            contents = contents.replace("@everyone", "");
+        }
+
+        // Remove @here if requested.
+        if (redirect.options && redirect.options.removeHere) {
+            contents = contents.replace("@here", "");
+        }
+
+        return { contents, embed: embed || undefined }; // Embed wordt alleen geretourneerd als deze bestaat
     }
 
-    // Remove @here if requested.
-    if (redirect.options && redirect.options.removeHere) {
-        contents = contents.replace("@here", "");
+    private generateNonce(): string {
+        return Math.random().toString(36).substring(2, 15);
     }
-
-    return { contents, embed: embed || undefined }; // Embed wordt alleen geretourneerd als deze bestaat
 }
 
 new EchoBot();

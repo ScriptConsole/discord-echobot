@@ -18,7 +18,7 @@
  */
 
 import * as fs from 'fs';
-import { Client, Intents, Message, MessageEmbed, MessageAttachment, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, Message, TextChannel, EmbedBuilder, AttachmentBuilder, DMChannel } from 'discord.js';
 import * as winston from 'winston';
 import { EchobotConfiguration } from './model/configuration.model';
 import * as http from "http";
@@ -40,8 +40,8 @@ const logger = winston.createLogger({
     transports: new winston.transports.Console()
 });
 
-let config: EchobotConfiguration = null;
-let discordClient: Client = null;
+let config: EchobotConfiguration = {} as EchobotConfiguration;
+let discordClient: Client = {} as Client;
 
 class EchoBot {
 
@@ -156,7 +156,7 @@ class EchoBot {
      */
     private loginToDiscord(): void {
         // Create client, but don't login yet.
-        discordClient = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
+        discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages], partials: [Partials.Message, Partials.Channel, Partials.Reaction] });
 
         // Register event for when client is ready.
         discordClient.on('ready', () => {
@@ -195,9 +195,9 @@ class EchoBot {
      */
     private async onDiscordClientMessageReceived(message: Message): Promise<void> {
         // Find redirects that have this message's channel id as a source.
-        let matchingRedirects = config.redirects.filter(redirect =>
-            redirect.sources.some(source => source == message.channel.id)
-        );
+        let matchingRedirects = config.redirects?.filter(redirect =>
+            redirect.sources?.some(source => source == message.channel.id)
+        ) ?? [];
 
         // Redirect to each destination.
         for (let redirect of matchingRedirects) {
@@ -222,7 +222,7 @@ class EchoBot {
                 continue;
             }
 
-            for (let destination of redirect.destinations) {
+            for (let destination of redirect.destinations ?? []) {
 
                 // Find destination channel.
                 let destChannel = discordClient.channels.cache.get(destination) as TextChannel;
@@ -243,12 +243,12 @@ class EchoBot {
                     let options = {
                         nonce: this.generateNonce()
                     };
-                    if (header instanceof MessageEmbed) {
+                    if (header instanceof EmbedBuilder) {
                         options['embeds'] = [header];
                         await destChannel.send(options);
                         logger.debug("Sent header as embed.");
                     } else {
-                        await destChannel.send(header, options);
+                        await destChannel.send({ content: header, ...options });
                         logger.debug("Sent header as text.");
                     }
                 }
@@ -259,11 +259,11 @@ class EchoBot {
                 let options = {
                     nonce: this.generateNonce(),
                     files: redirect.options?.copyAttachments ? message.attachments.map(attachment => {
-                        return new MessageAttachment(attachment.url, attachment.name)
+                        return new AttachmentBuilder(attachment.url).setName(attachment.name ?? 'attachment')
                     }) : [],
                     embeds: body.embed ? [body.embed] : []
                 };
-                await destChannel.send(body.contents, options);
+                await destChannel.send({ content: body.contents, ...options });
                 logger.debug("Sent body.");
             }
         }
@@ -285,10 +285,10 @@ class EchoBot {
         return parts.join("/")
     }
 
-    private createHeader(message: Message, redirect: EchobotRedirect): MessageEmbed | string | null {
+    private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder | string | null {
         if (redirect.options?.richEmbed) {
             // Sending a rich embed.
-            let richEmbed = new MessageEmbed({
+            let richEmbed = new EmbedBuilder({
                 color: redirect.options.richEmbedColor ? redirect.options.richEmbedColor : 30975
             });
 
@@ -303,7 +303,7 @@ class EchoBot {
 
             // Add source if requested.
             if (redirect.options.includeSource) {
-                richEmbed.addField("Author", `**${message.member.displayName}** in **${this.explainPath(message.channel)}**`);
+                richEmbed.addFields({ name: "Author", value: `**${message.member?.displayName ?? 'Unknown'}** in **${this.explainPath(message.channel)}**` });
             }
             return richEmbed;
         } else {
@@ -317,7 +317,7 @@ class EchoBot {
 
             // Add source if requested.
             if (redirect.options?.includeSource) {
-                destinationMessage += `*Author: **${message.member.displayName}** in **${this.explainPath(message.channel)}***\n`;
+                destinationMessage += `*Author: **${message.member?.displayName ?? 'Unknown'}** in **${this.explainPath(message.channel)}***\n`;
             }
 
             if (destinationMessage == "") {
@@ -327,15 +327,15 @@ class EchoBot {
         }
     }
 
-    private createBody(message: Message, redirect: EchobotRedirect): { contents?: string, embed?: MessageEmbed } {
+    private createBody(message: Message, redirect: EchobotRedirect): { contents?: string, embed?: EmbedBuilder } {
         let contents = message.content;
-        let embed: MessageEmbed = undefined;
+        let embed: EmbedBuilder = undefined;
 
         // Copy rich embed if requested.
         if (redirect.options?.copyRichEmbed) {
             let receivedEmbed = message.embeds.find(e => e.type == 'rich')
             if (receivedEmbed) {
-                embed = new MessageEmbed(receivedEmbed);
+                embed = EmbedBuilder.from(receivedEmbed);
             }
         }
 

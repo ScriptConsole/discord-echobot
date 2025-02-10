@@ -77,7 +77,7 @@ class EchoBot {
         }
 
         // Ensure the config has a Discord token defined.
-        if (!config.token) {
+        if (!config || !config.token) {
             logger.error("The Discord Client token is missing from the configuration file.");
             return false;
         }
@@ -117,6 +117,10 @@ class EchoBot {
 
                 // Check for loop.
                 for (let source of redirect.sources) {
+                    if (!redirect.destinations) {
+                        logger.error("A redirect has no destinations.");
+                        continue;
+                    }
                     for (let destination of redirect.destinations) {
                         if (source == destination) {
                             logger.error("A redirect has a source that is the same as a destination: " + source + ". This will result in an infinite loop.");
@@ -186,16 +190,22 @@ discordClient.once(Discord.Events.ClientReady, () => {
         discordClient.on('error', error => {
             logger.error("An error occurred: " + error.message);
             logger.info("Restarting Discord Client.");
-            discordClient.destroy()
+            if (discordClient) {
+                discordClient.destroy();
+            }
             this.loginToDiscord();
         });
 
         // Login.
-        discordClient
-            .login(config.token)
-            .catch(err => {
-                logger.error("Could not sign into Discord:", err);
-            });
+        if (config && config.token) {
+            discordClient
+                .login(config.token)
+                .catch(err => {
+                    logger.error("Could not sign into Discord:", err);
+                });
+        } else {
+            logger.error("Config or token is null. Cannot login to Discord.");
+        }
     }
 
     /**
@@ -204,8 +214,12 @@ discordClient.once(Discord.Events.ClientReady, () => {
      */
     private async onDiscordClientMessageReceived(message: Discord.Message): Promise<void> {
         // Find redirects that have this message's channel id as a source.
+        if (!config || !config.redirects) {
+            logger.error("Configuration or redirects are not properly loaded.");
+            return;
+        }
         let matchingRedirects = config.redirects.filter(redirect =>
-            redirect.sources.some(source => source == message.channel.id)
+            redirect.sources?.some(source => source == message.channel.id) ?? false
         );
 
         // Redirect to each destination.
@@ -215,7 +229,7 @@ discordClient.once(Discord.Events.ClientReady, () => {
             if (redirect.options && redirect.options.allowList) {
                 if (redirect.options.allowList.length > 0) {
                     if (!redirect.options.allowList.includes(message.author.id)) {
-                        logger.info("Dropping message from " + message.author.username + " in " + message.guild.name + "/" + (message.channel as TextChannel).name + " as their ID (" + message.author.id + ") is not in the allowList.")
+                        logger.info("Dropping message from " + message.author.username + " in " + (message.guild ? message.guild.name : "Unknown Guild") + "/" + (message.channel as TextChannel).name + " as their ID (" + message.author.id + ") is not in the allowList.")
                         continue;
                     }
                 }
@@ -234,10 +248,14 @@ discordClient.once(Discord.Events.ClientReady, () => {
                 logger.info(`Dropping message from ${message.author.username} in ${this.explainPath(message.channel)} as their message would be empty due to redirect options.`)
                 continue;
             }
-
+if (redirect.destinations) {
             for (let destination of redirect.destinations) {
 
                 // Find destination channel.
+                if (!discordClient) {
+                    logger.error("Discord client is null. Cannot redirect message.");
+                    return;
+                }
                 let destChannel = discordClient.channels.cache.get(destination);
                 if (destChannel == null) {
                     Promise.reject(`Could not redirect from channel ID ${message.channel.id} to channel ID ${destination}: Destination channel was not found.`);
@@ -287,6 +305,9 @@ await (destChannel as Discord.TextChannel).send({
 });
 
 logger.debug("Sent body.");
+        }   
+    }else{
+            logger.error("No destinations found.")
         }
     }
 }
@@ -329,7 +350,8 @@ private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder 
 
         // Add source if requested.
         if (redirect.options.includeSource) {
-            richEmbed.addFields({ name: "Author", value: `**${message.member.displayName}** in **${this.explainPath(message.channel)}**` });
+            const displayName = message.member ? message.member.displayName : message.author.username;
+            richEmbed.addFields({ name: "Author", value: `**${displayName}** in **${this.explainPath(message.channel)}**` });
         }
         return richEmbed;
     } else {
@@ -343,7 +365,8 @@ private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder 
 
         // Add source if requested.
         if (redirect.options && redirect.options.includeSource) {
-            destinationMessage += `*Author: **${message.member.displayName}** in **${this.explainPath(message.channel)}***\n`;
+            const displayName = message.member ? message.member.displayName : message.author.username;
+            destinationMessage += `*Author: **${displayName}** in **${this.explainPath(message.channel)}***\n`;
         }
 
         if (destinationMessage == "") {

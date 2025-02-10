@@ -287,6 +287,13 @@ await (destChannel as Discord.TextChannel).send({
 });
 
 logger.debug("Sent body.");
+        }
+    }
+}
+
+    private generateNonce(): string {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
 
     private explainPath(channel: Discord.Channel): string {
     let parts: string[] = [];
@@ -352,7 +359,7 @@ private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder 
 
     // Copy rich embed if requested.
     if (redirect.options && redirect.options.copyRichEmbed) {
-        let receivedEmbed = message.embeds.find(e => e.type === 'rich'); // Controleer of het een rich embed is
+        let receivedEmbed = message.embeds.find(e => e.data.type === 'rich'); // Controleer of het een rich embed is
         if (receivedEmbed) {
             embed = new EmbedBuilder()
                 .setTitle(receivedEmbed.title || "")
@@ -408,8 +415,8 @@ private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder 
     return { contents, embed: embed || undefined }; // Embed wordt alleen geretourneerd als deze bestaat
 }
 
-async function main() {
-    new EchoBot();
-}
 
-main();
+    }
+    
+    // Instantiate the EchoBot
+    new EchoBot();

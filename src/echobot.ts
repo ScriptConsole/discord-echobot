@@ -289,20 +289,21 @@ await (destChannel as Discord.TextChannel).send({
 logger.debug("Sent body.");
 
     private explainPath(channel: Discord.Channel): string {
-        let parts = []
+    let parts: string[] = [];
 
-        if (channel instanceof Discord.GuildChannel) {
-            parts.push(channel.guild.name)
-            if (channel.parent) {
-                parts.push(channel.parent.name)
-            }
-            parts.push(channel.name)
-        } else if (channel instanceof Discord.DMChannel) {
-            parts.push(`Direct Messages`)
+    if (channel.isDMBased()) {  
+        parts.push("Direct Messages");
+    } 
+    else if (channel.isTextBased() && "guild" in channel) { 
+        parts.push(channel.guild?.name || "Unknown Guild"); // Voeg Guild naam toe
+        if ("parent" in channel && channel.parent?.name) {
+            parts.push(channel.parent.name); // Voeg categorie toe indien beschikbaar
         }
-
-        return parts.join("/")
+        parts.push(channel.name);
     }
+
+    return parts.join(" / ");
+}
 
 private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder | string | null {
     if (redirect.options && redirect.options.richEmbed) {
@@ -407,4 +408,8 @@ private createHeader(message: Message, redirect: EchobotRedirect): EmbedBuilder 
     return { contents, embed: embed || undefined }; // Embed wordt alleen geretourneerd als deze bestaat
 }
 
-new EchoBot();
+async function main() {
+    new EchoBot();
+}
+
+main();

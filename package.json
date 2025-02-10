@@ -34,7 +34,7 @@
     "ext": "*"
   },
   "dependencies": {
-    "discord.js": "^14.14.1",
+    "discord.js": "^14.0.0",
     "winston": "^3.3.3"
   },
   "devDependencies": {

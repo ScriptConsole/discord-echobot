@@ -203,7 +203,7 @@ class EchoBot {
         for (let redirect of matchingRedirects) {
 
             // Check allowList
-            if (redirect.options?.allowList?.length > 0) {
+            if (redirect.options?.allowList?.length && redirect.options.allowList.length > 0) {
                 if (!redirect.options.allowList.includes(message.author.id)) {
                     logger.info("Dropping message from " + message.author.username + " in " + message.guild?.name + "/" + (message.channel as TextChannel).name + " as their ID (" + message.author.id + ") is not in the allow list.");
                     continue;
@@ -329,7 +329,7 @@ class EchoBot {
 
     private createBody(message: Message, redirect: EchobotRedirect): { contents?: string, embed?: EmbedBuilder } {
         let contents = message.content;
-        let embed: EmbedBuilder = undefined;
+        let embed: EmbedBuilder | undefined = undefined;
 
         // Copy rich embed if requested.
         if (redirect.options?.copyRichEmbed) {

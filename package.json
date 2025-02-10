@@ -19,7 +19,7 @@
     "node": "22.13.1"
   },
   "scripts": {
-    "build": "tsc build --output public",
+    "build": "tsc",
     "start": "node ./bin/echobot.js",
     "debug": "nodemon ./src/echobot.ts"
   },

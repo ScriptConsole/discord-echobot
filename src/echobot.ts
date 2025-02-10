@@ -157,12 +157,18 @@ class EchoBot {
      */
     private loginToDiscord(): void {
         // Create client, but don't login yet.
-        discordClient = new Discord.Client();
+        discordClient = new Discord.Client({
+    intents: [
+        Discord.GatewayIntentBits.Guilds, 
+        Discord.GatewayIntentBits.GuildMessages, 
+        Discord.GatewayIntentBits.MessageContent
+    ]
+});
 
         // Register event for when client is ready.
-        discordClient.on('ready', () => {
-            logger.info("Signed into Discord.");
-        });
+discordClient.once(Discord.Events.ClientReady, () => {
+    logger.info("Signed into Discord.");
+});
 
         // Register event for when client receives a message.
         discordClient.on('message', (message) => {
@@ -230,7 +236,7 @@ class EchoBot {
             for (let destination of redirect.destinations) {
 
                 // Find destination channel.
-                let destChannel = discordClient.channels.get(destination);
+                let destChannel = discordClient.channels.cache.get(destination);
                 if (destChannel == null) {
                     Promise.reject(`Could not redirect from channel ID ${message.channel.id} to channel ID ${destination}: Destination channel was not found.`);
                     return;
@@ -261,14 +267,13 @@ class EchoBot {
                 // Send the body
                 logger['debug']("Sending body:")
                 logger.debug(JSON.stringify(body));
-                let options: Discord.MessageOptions = {
-                    nonce: this.generateNonce(),
-                    files: redirect.options.copyAttachments ? message.attachments.map(attachment => {
-                        return new Discord.Attachment(attachment.url, attachment.filename)
-                    }) : [],
-                    embed: body.embed
-                }
-                await (destChannel as TextChannel).send(body.contents, options);
+                let options: Discord.MessageCreateOptions = {
+                files: redirect.options.copyAttachments ? message.attachments.map(attachment => {
+                return { attachment: attachment.url, name: attachment.name };
+                }) : [],
+                embeds: body.embed ? [body.embed] : []
+                };
+                await (destChannel as Discord.TextChannel).send({ content: body.contents ?? '', ...options });
                 logger.debug("Sent body.");
             }
         }
@@ -293,9 +298,8 @@ class EchoBot {
     private createHeader(message: Discord.Message, redirect: EchobotRedirect): Discord.RichEmbed | string | null {
         if (redirect.options && redirect.options.richEmbed) {
             // Sending a rich embed.
-            let richEmbed = new Discord.RichEmbed({
-                color: redirect.options.richEmbedColor ? redirect.options.richEmbedColor : 30975
-            });
+            let richEmbed = new Discord.EmbedBuilder()
+            .setColor(redirect.options.richEmbedColor ? redirect.options.richEmbedColor : 30975);
 
             if (!redirect.options.title && !redirect.options.includeSource) {
                 return null;

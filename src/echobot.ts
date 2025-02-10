@@ -297,7 +297,7 @@ logger.debug("Sent body.");
     else if (channel.isTextBased() && "guild" in channel) { 
         parts.push(channel.guild?.name || "Unknown Guild"); // Voeg Guild naam toe
         if ("parent" in channel && channel.parent?.name) {
-            parts.push(channel.parent.name); // Voeg categorie toe indien beschikbaar
+            parts.push(channel.parent.name);
         }
         parts.push(channel.name);
     }

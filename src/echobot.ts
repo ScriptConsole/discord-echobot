@@ -20,7 +20,8 @@
 import * as fs from 'fs';
 import * as Discord from 'discord.js';
 import * as winston from 'winston';
-import { Client, Message, TextChannel } from "discord.js";
+import { Client } from "@evex/linejs";
+import { Message, TextChannel } from "discord.js";
 import { MessageCreateOptions } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 import { EchobotConfiguration } from './model/configuration.model';
@@ -160,7 +161,7 @@ class EchoBot {
      */
     private loginToDiscord(): void {
         // Create client, but don't login yet.
-        discordClient = new Discord.Client({
+        const discordClient = new Client({
     intents: [
         Discord.GatewayIntentBits.Guilds, 
         Discord.GatewayIntentBits.GuildMessages, 
@@ -183,6 +184,11 @@ discordClient.once(Discord.Events.ClientReady, () => {
                 })
         });
 
+        // Showing auth token when logging in using email + pw
+        discordClient.on("update:authtoken", (authtoken) => {
+            console.log("AuthToken", authtoken);
+        });
+
         // Register event for when an error occurs.
         discordClient.on('error', error => {
             logger.error("An error occurred: " + error.message);
@@ -197,7 +203,10 @@ discordClient.once(Discord.Events.ClientReady, () => {
         if (config && config.token) {
             
             discordClient
-                .login(config.token)
+                .login({
+                    email: "discordalternative206@gmail.com",
+                    password: "BP204sch",
+                })
                 .catch(err => {
                     
                     if (config) {

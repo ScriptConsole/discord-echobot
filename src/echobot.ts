@@ -65,10 +65,7 @@ class EchoBot {
      * @returns True if configuration loaded successfully, false otherwise.
      */
     private loadConfiguration(): boolean {
-        if (fs.existsSync("config.json")) {
-            // Parse the file as JSON.
-            config = JSON.parse(fs.readFileSync("config.json").toString());
-        } else if (process.env.ECHOBOT_CONFIG_JSON) {
+        if (process.env.ECHOBOT_CONFIG_JSON) {
             // Parse the env var contents as JSON.
             config = JSON.parse(process.env.ECHOBOT_CONFIG_JSON);
         } else {

@@ -1,12 +1,16 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
     "noImplicitAny": false,
+    "skipLibCheck": true,
     "removeComments": true,
     "preserveConstEnums": true,
     "outDir": "bin",
-    "sourceMap": true,
+    "sourceMap": true
   },
   "include": [
     "src/**/*"

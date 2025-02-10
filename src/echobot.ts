@@ -199,10 +199,12 @@ discordClient.once(Discord.Events.ClientReady, () => {
             discordClient
                 .login(config.token)
                 .catch(err => {
+                    
                     if (config) {
-                        logger.debug("Attempting to login with token: " + config.token); // Add this line to log the token
+                        logger.error("Could not sign into Discord with " + config.token + ":", err);
+                    } else {
+                        logger.error("Config is null. Could not sign into Discord:", err);
                     }
-                    logger.error("Could not sign into Discord:", err);
                 });
         } else {
             logger.error("Config or token is null. Cannot login to Discord.");
